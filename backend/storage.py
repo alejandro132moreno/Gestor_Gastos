@@ -12,7 +12,7 @@ s3_client = boto3.client(
     aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
 )
 
-BUCKET_NAME = os.getenv('AWS_S3_BUCKET_NAME', 'mi-bucket-gastos')
+BUCKET_NAME = os.getenv('AWS_S3_BUCKET_NAME', 'api-gastos')
 
 def upload_file_to_s3(file: UploadFile) -> str:
     """ Sube un archivo a S3 y devuelve su URL. """
