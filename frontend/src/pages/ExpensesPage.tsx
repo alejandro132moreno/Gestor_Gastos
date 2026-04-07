@@ -53,6 +53,40 @@ export default function ExpensesPage() {
         }
     };
 
+    const handleExportCSV = (e: React.MouseEvent) => {
+        e.preventDefault();
+        if (!expenses || expenses.length === 0) {
+            alert('No hay datos para exportar.');
+            return;
+        }
+        try {
+            const headers = ['Fecha', 'Categoría', 'Descripción', 'Monto', 'Lote', 'Ciclo'];
+            const rows = expenses.map(exp => [
+                exp.date || '',
+                exp.category || '',
+                `"${(exp.description || '').replace(/"/g, '""')}"`,
+                exp.amount || 0,
+                '',
+                exp.crop_cycle || ''
+            ]);
+            const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const BOM = '\uFEFF';
+            const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'gastos_exportados.csv';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error al exportar CSV:', error);
+            alert('Error al generar el archivo para descargar.');
+        }
+    };
+
     // Apply filters locally for now
     const filteredExpenses = expenses.filter(exp => {
         if (filterCategory && exp.category !== filterCategory) return false;
@@ -68,7 +102,11 @@ export default function ExpensesPage() {
                     <p style={{ color: 'var(--text-muted)' }}>Control agrícola y operativo</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                    <button 
+                        className="btn" 
+                        onClick={handleExportCSV}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+                    >
                         <Download size={20} />
                         <span style={{ display: 'none', '@media (minWidth: 768px)': { display: 'inline' } } as any}>Exportar</span>
                     </button>

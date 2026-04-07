@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCcw, Plus, Activity, Trash2 } from 'lucide-react';
+import { RefreshCcw, Plus, Activity, Trash2, X } from 'lucide-react';
 import * as api from '../services/api';
 import type { CropCycle } from '../types';
 import CropCycleModal from '../components/CropCycleModal';
@@ -7,6 +7,8 @@ import CropCycleModal from '../components/CropCycleModal';
 export default function CropCyclesPage() {
     const [cycles, setCycles] = useState<CropCycle[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [harvestModal, setHarvestModal] = useState<{isOpen: boolean, id: string, current: number}>({isOpen: false, id: '', current: 0});
+    const [harvestForm, setHarvestForm] = useState({ amount: '', action: 'add' });
 
     useEffect(() => {
         loadCycles();
@@ -21,6 +23,36 @@ export default function CropCyclesPage() {
         if (!window.confirm('¿Seguro que deseas eliminar este ciclo?')) return;
         await api.deleteCropCycle(id);
         loadCycles();
+    };
+
+    const handleOpenHarvestModal = (id: string, currentTotal: number) => {
+        setHarvestModal({ isOpen: true, id, current: currentTotal });
+        setHarvestForm({ amount: '', action: 'add' });
+    };
+
+    const handleHarvestSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const amount = Number(harvestForm.amount);
+        if (isNaN(amount) || amount <= 0) {
+            alert('Por favor, introduce una cantidad válida mayor a 0.');
+            return;
+        }
+
+        let newTotal = harvestModal.current;
+        if (harvestForm.action === 'add') {
+            newTotal += amount;
+        } else {
+            newTotal -= amount;
+            if (newTotal < 0) newTotal = 0;
+        }
+
+        const success = await api.updateCropCycle(harvestModal.id, { total_harvest_kg: newTotal });
+        if (success) {
+            setHarvestModal({ isOpen: false, id: '', current: 0 });
+            loadCycles();
+        } else {
+            alert('Hubo un error al actualizar la cosecha.');
+        }
     };
 
     const getStatusColor = (status: string) => {
@@ -84,7 +116,16 @@ export default function CropCyclesPage() {
                                 <div style={{ color: 'var(--text-muted)' }}><Activity size={18} /></div>
                                 <div>
                                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.1rem' }}>Cosecha Total</p>
-                                    <p style={{ fontWeight: 600, color: 'var(--primary)' }}>{cycle.total_harvest_kg || 0} kg</p>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <p style={{ fontWeight: 600, color: 'var(--primary)' }}>{cycle.total_harvest_kg || 0} kg</p>
+                                        <button 
+                                            title="Actualizar cosecha"
+                                            onClick={() => handleOpenHarvestModal(cycle.id, cycle.total_harvest_kg || 0)} 
+                                            style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '4px', cursor: 'pointer' }}
+                                        >
+                                            <RefreshCcw size={14} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -101,6 +142,67 @@ export default function CropCyclesPage() {
             </div>
 
             {isModalOpen && <CropCycleModal onClose={() => setIsModalOpen(false)} onSaved={() => { setIsModalOpen(false); loadCycles(); }} />}
+
+            {harvestModal.isOpen && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+                    <div className="glass-panel animate-slide-up" style={{ padding: '2rem', width: '100%', maxWidth: '400px', position: 'relative' }}>
+                        <button 
+                            onClick={() => setHarvestModal({ isOpen: false, id: '', current: 0 })}
+                            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                        >
+                            <X size={20} />
+                        </button>
+                        <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>Actualizar Cosecha Total</h3>
+                        <p style={{ marginBottom: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                            Cosecha actual: <strong style={{ color: 'var(--primary)' }}>{harvestModal.current} kg</strong>
+                        </p>
+                        <form onSubmit={handleHarvestSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Acción</label>
+                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="action" 
+                                            value="add" 
+                                            checked={harvestForm.action === 'add'} 
+                                            onChange={(e) => setHarvestForm({...harvestForm, action: e.target.value})}
+                                        />
+                                        Añadir (Sumar)
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                        <input 
+                                            type="radio" 
+                                            name="action" 
+                                            value="subtract" 
+                                            checked={harvestForm.action === 'subtract'} 
+                                            onChange={(e) => setHarvestForm({...harvestForm, action: e.target.value})}
+                                        />
+                                        Quitar (Restar)
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Cantidad (kg)</label>
+                                <input 
+                                    type="number" 
+                                    min="0"
+                                    step="0.01"
+                                    required 
+                                    className="glass-input" 
+                                    placeholder="Ej: 50"
+                                    value={harvestForm.amount} 
+                                    onChange={(e) => setHarvestForm({...harvestForm, amount: e.target.value})}
+                                    style={{ width: '100%', padding: '0.75rem' }}
+                                />
+                            </div>
+                            <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem' }}>
+                                Guardar Cosecha
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

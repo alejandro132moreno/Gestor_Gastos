@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Query
+from fastapi import FastAPI, HTTPException, UploadFile, File, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from schemas import (
@@ -111,7 +111,7 @@ def get_crop_cycles():
     return database.get_crop_cycles()
 
 @app.put("/api/crop-cycles/{cycle_id}")
-def update_crop_cycle(cycle_id: str, updates: dict):
+def update_crop_cycle(cycle_id: str, updates: dict = Body(...)):
     res = database.update_crop_cycle(cycle_id, updates)
     if not res:
         raise HTTPException(status_code=404, detail="Ciclo no encontrado.")

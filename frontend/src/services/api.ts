@@ -176,6 +176,15 @@ export const deleteCropCycle = async (id: string): Promise<boolean> => {
     }
 };
 
+export const updateCropCycle = async (id: string, updates: any): Promise<any> => {
+    try {
+        const { data } = await apiClient.put(`/api/crop-cycles/${id}`, updates);
+        return data;
+    } catch (e) {
+        console.error(e); return null;
+    }
+};
+
 // --- PLOTS ---
 export const fetchPlots = async (): Promise<any[]> => {
     try {
