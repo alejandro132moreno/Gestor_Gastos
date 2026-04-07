@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { InventoryItem, InventoryConsume, CropCycle } from '../../types';
 
@@ -34,17 +35,17 @@ export default function ConsumeModal({ item, cropCycles, onClose, onSubmit }: Co
 
     const calculatedCost = (parseFloat(quantity) || 0) * item.average_cost;
 
-    return (
+    return createPortal(
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
             display: 'flex', justifyContent: 'center', alignItems: 'center',
-            zIndex: 9999, padding: '1rem'
+            zIndex: 99999, padding: '1rem'
         }}>
             <div className="glass-panel animate-slide-up" style={{ width: '100%', maxWidth: '500px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h2 style={{ margin: 0 }}>Registrar Consumo</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                    <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                         <X size={24} />
                     </button>
                 </div>
@@ -95,6 +96,7 @@ export default function ConsumeModal({ item, cropCycles, onClose, onSubmit }: Co
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
