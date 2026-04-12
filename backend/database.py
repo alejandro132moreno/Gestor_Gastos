@@ -23,12 +23,14 @@ TABLE_NAME = 'Control_Gastos'
 table = dynamodb.Table(TABLE_NAME)
 
 def convert_floats_to_decimals(obj):
+    if obj is None:
+        return obj
     if isinstance(obj, float):
         return Decimal(str(obj))
     elif isinstance(obj, dict):
-        return {k: convert_floats_to_decimals(v) for k, v in obj.items()}
+        return {k: convert_floats_to_decimals(v) for k, v in obj.items() if v is not None}
     elif isinstance(obj, list):
-        return [convert_floats_to_decimals(v) for v in obj]
+        return [convert_floats_to_decimals(v) for v in obj if v is not None]
     return obj
 
 def convert_decimals(obj):
@@ -375,6 +377,20 @@ def consume_inventory_item(item_id: str, consume_data: dict) -> dict:
     
     return inv_item
 
+def delete_inventory_item(item_id: str) -> bool:
+    try:
+        table.delete_item(
+            Key={
+                'gasto_id': item_id,
+                'fecha_gasto_id': 'INVENTORY_ITEM'
+            }
+        )
+        return True
+    except Exception as e:
+        print(f"Error deleting inventory item: {e}")
+        return False
+
+
 # --- CRUD USERS ---
 def get_user_by_email(email: str) -> dict:
     try:
@@ -414,3 +430,53 @@ def update_user_profile(user_id: str, updates: dict) -> dict:
     item = convert_floats_to_decimals(existing)
     table.put_item(Item=item)
     return existing
+
+# --- CRUD PROVIDERS ---
+def create_provider(provider_data: dict) -> dict:
+    new_id = "prov_" + str(uuid.uuid4())
+    provider_data['gasto_id'] = new_id
+    provider_data['fecha_gasto_id'] = 'PROVIDER'
+    provider_data['id'] = new_id
+    provider_data['entity_type'] = 'PROVIDER'
+    
+    item = convert_floats_to_decimals(provider_data)
+    table.put_item(Item=item)
+    return provider_data
+
+def get_providers() -> List[dict]:
+    response = table.scan(
+        FilterExpression=Key('entity_type').eq('PROVIDER')
+    )
+    items = response.get('Items', [])
+    converted = convert_decimals(items)
+    for p in converted:
+        if 'id' not in p and 'gasto_id' in p:
+            p['id'] = p['gasto_id']
+    return converted
+
+def update_provider(provider_id: str, updates: dict) -> dict:
+    response = table.query(
+        KeyConditionExpression=Key('gasto_id').eq(provider_id) & Key('fecha_gasto_id').eq('PROVIDER')
+    )
+    items = response.get('Items', [])
+    if not items:
+        return None
+        
+    existing = convert_decimals(items[0])
+    existing.update(updates)
+    item = convert_floats_to_decimals(existing)
+    table.put_item(Item=item)
+    return existing
+
+def delete_provider(provider_id: str) -> bool:
+    try:
+        table.delete_item(
+            Key={
+                'gasto_id': provider_id,
+                'fecha_gasto_id': 'PROVIDER'
+            }
+        )
+        return True
+    except Exception as e:
+        print(f"Error al eliminar proveedor: {e}")
+        return False

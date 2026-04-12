@@ -11,6 +11,7 @@ const expenseSchema = z.object({
     category: z.string().min(1, 'La categoría es obligatoria'),
     subcategory: z.string().optional(),
     crop_cycle: z.string().optional(),
+    provider_name: z.string().optional(),
     date: z.string().min(1, 'La fecha es obligatoria'),
 });
 
@@ -36,9 +37,16 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, isLoading, cate
     const [isUploading, setIsUploading] = useState(false);
     
     const [cropCycles, setCropCycles] = useState<any[]>([]);
+    const [providers, setProviders] = useState<any[]>([]);
 
     useEffect(() => {
-        api.fetchCropCycles().then(setCropCycles);
+        Promise.all([
+            api.fetchCropCycles(),
+            api.fetchProviders()
+        ]).then(([cycles, provs]) => {
+            setCropCycles(cycles);
+            setProviders(provs);
+        });
     }, []);
 
     // Watch selected category to update subcategories
@@ -128,14 +136,25 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, isLoading, cate
                 )}
             </div>
 
-            <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Ciclo de Cultivo (Opcional)</label>
-                <select className="glass-input" {...register('crop_cycle')}>
-                    <option value="">Ninguno / Gastos Generales</option>
-                    {cropCycles.map(cycle => (
-                        <option key={cycle.id} value={cycle.id}>{cycle.name} ({cycle.variety})</option>
-                    ))}
-                </select>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 200px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Ciclo de Cultivo (Opcional)</label>
+                    <select className="glass-input" {...register('crop_cycle')}>
+                        <option value="">Ninguno / Gastos Generales</option>
+                        {cropCycles.map(cycle => (
+                            <option key={cycle.id} value={cycle.id}>{cycle.name} ({cycle.variety})</option>
+                        ))}
+                    </select>
+                </div>
+                <div style={{ flex: '1 1 200px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Proveedor (Opcional)</label>
+                    <select className="glass-input" {...register('provider_name')}>
+                        <option value="">Ninguno</option>
+                        {providers.map(prov => (
+                            <option key={prov.id} value={prov.name}>{prov.name}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             <div style={{

@@ -5,6 +5,7 @@ export interface Expense {
     category: string;
     subcategory?: string;
     crop_cycle?: string;
+    provider_name?: string;
     date: string;
     receipt_url?: string;
 }
@@ -66,8 +67,10 @@ export interface InventoryItem {
     unit: string;
     current_stock: number;
     average_cost: number;
+    date_added?: string;
+    provider_name?: string;
 }
-export type InventoryItemInput = Omit<InventoryItem, 'id' | 'current_stock'>;
+export type InventoryItemInput = Omit<InventoryItem, 'id'>;
 
 export interface InventoryConsume {
     quantity: number;
@@ -75,3 +78,23 @@ export interface InventoryConsume {
     crop_cycle_id?: string;
     notes?: string;
 }
+
+export interface ProviderProduct {
+    id: string;
+    name: string;
+    price: number;
+    description?: string;
+}
+
+export interface Provider {
+    id: string;
+    name: string;
+    contact_name?: string;
+    phone?: string;
+    email?: string;
+    service_type?: string;
+    notes?: string;
+    products: ProviderProduct[];
+}
+
+export type ProviderInput = Omit<Provider, 'id'>;

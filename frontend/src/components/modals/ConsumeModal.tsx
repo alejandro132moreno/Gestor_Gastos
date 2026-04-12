@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import type { InventoryItem, InventoryConsume, CropCycle } from '../../types';
+import type { InventoryItem, InventoryConsume, CropCycle, Plot } from '../../types';
 
 interface ConsumeModalProps {
     item: InventoryItem;
     cropCycles: CropCycle[];
+    plots: Plot[];
     onClose: () => void;
     onSubmit: (payload: InventoryConsume) => void;
 }
 
-export default function ConsumeModal({ item, cropCycles, onClose, onSubmit }: ConsumeModalProps) {
+export default function ConsumeModal({ item, cropCycles, plots, onClose, onSubmit }: ConsumeModalProps) {
     const [quantity, setQuantity] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [cropCycleId, setCropCycleId] = useState('');
@@ -72,7 +73,7 @@ export default function ConsumeModal({ item, cropCycles, onClose, onSubmit }: Co
                         <select className="glass-input" value={cropCycleId} onChange={e => setCropCycleId(e.target.value)} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
                             <option value="">-- No aplicar a ninguno --</option>
                             {cropCycles.filter(c => c.status === 'ACTIVE').map(cycle => (
-                                <option key={cycle.id} value={cycle.id}>Lote: {cycle.plot_id} - Cultivo: {cycle.variety}</option>
+                                <option key={cycle.id} value={cycle.id}>Lote: {plots.find(p => p.id === cycle.plot_id)?.name || cycle.plot_id} - Cultivo: {cycle.variety}</option>
                             ))}
                         </select>
                     </div>

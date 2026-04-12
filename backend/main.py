@@ -159,6 +159,36 @@ def consume_inventory_item(item_id: str, consume: InventoryConsume):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.delete("/api/inventory/{item_id}")
+def delete_inventory_item(item_id: str):
+    success = database.delete_inventory_item(item_id)
+    if not success:
+         raise HTTPException(status_code=404, detail="Insumo no encontrado.")
+    return {"message": "Success"}
+
+# --- EPIC 10: PROVIDERS ---
+@app.post("/api/providers", response_model=schemas.Provider)
+def create_provider(provider: schemas.ProviderCreate):
+    return database.create_provider(provider.model_dump())
+
+@app.get("/api/providers", response_model=List[schemas.Provider])
+def get_providers():
+    return database.get_providers()
+
+@app.put("/api/providers/{provider_id}")
+def update_provider(provider_id: str, updates: dict = Body(...)):
+    res = database.update_provider(provider_id, updates)
+    if not res:
+        raise HTTPException(status_code=404, detail="Proveedor no encontrado.")
+    return res
+
+@app.delete("/api/providers/{provider_id}")
+def delete_provider(provider_id: str):
+    success = database.delete_provider(provider_id)
+    if not success:
+         raise HTTPException(status_code=404, detail="Proveedor no encontrado.")
+    return {"message": "Success"}
+
 # --- EPIC 2: AUTHENTICATION ---
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 

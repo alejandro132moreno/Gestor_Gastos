@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import type { InventoryItemInput } from '../../types';
+import type { InventoryItemInput, Provider } from '../../types';
 
 interface ItemModalProps {
+    providers: Provider[];
     onClose: () => void;
     onSubmit: (item: InventoryItemInput) => void;
 }
 
-export default function ItemModal({ onClose, onSubmit }: ItemModalProps) {
+export default function ItemModal({ providers, onClose, onSubmit }: ItemModalProps) {
     const [name, setName] = useState('');
     const [category, setCategory] = useState('');
     const [unit, setUnit] = useState('');
     const [averageCost, setAverageCost] = useState('');
+    const [currentStock, setCurrentStock] = useState('0');
+    const [providerName, setProviderName] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -20,7 +23,10 @@ export default function ItemModal({ onClose, onSubmit }: ItemModalProps) {
             name,
             category,
             unit,
-            average_cost: parseFloat(averageCost) || 0
+            average_cost: parseFloat(averageCost) || 0,
+            current_stock: parseFloat(currentStock) || 0,
+            provider_name: providerName || undefined,
+            date_added: new Date().toISOString()
         });
     };
 
@@ -55,13 +61,26 @@ export default function ItemModal({ onClose, onSubmit }: ItemModalProps) {
                         </select>
                     </div>
                     <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Proveedor (Opcional)</label>
+                        <select className="glass-input" value={providerName} onChange={e => setProviderName(e.target.value)} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                            <option value="">Selecciona un proveedor...</option>
+                            {providers.map(prov => (
+                                <option key={prov.id} value={prov.name}>{prov.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
                         <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Unidad de Medida (Ej. Kg, Lts, Piezas)</label>
                         <input className="glass-input" required value={unit} onChange={e => setUnit(e.target.value)} placeholder="Ej. Kg" />
                     </div>
                     <div>
                         <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Costo Promedio (Por Unidad)</label>
                         <input type="number" step="0.01" className="glass-input" required value={averageCost} onChange={e => setAverageCost(e.target.value)} placeholder="0.00" />
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Este costo es para calcular el valor total cuando se consuma. (El stock se añade mediante compras, aquí lo iniciamos en 0 por ahora hasta que implementes Entradas y Salidas).</span>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Stock Inicial (Opcional)</label>
+                        <input type="number" step="0.01" className="glass-input" required value={currentStock} onChange={e => setCurrentStock(e.target.value)} placeholder="0.00" />
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Puedes iniciar con alguna cantidad para poder probar el consumo.</span>
                     </div>
 
                     <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>

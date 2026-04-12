@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Expense, ExpenseInput, Category, CategoryInput, Budget, BudgetInput, InventoryItem, InventoryItemInput } from '../types';
+import type { Expense, ExpenseInput, Category, CategoryInput, Budget, BudgetInput, InventoryItem, InventoryItemInput, Provider, ProviderInput } from '../types';
 import { useAuthStore } from '../store/useAuthStore';
 
 const API_URL = 'http://localhost:8000';
@@ -237,6 +237,53 @@ export const consumeInventoryItem = async (id: string, consumeParams: any): Prom
         const { data } = await apiClient.post(`/api/inventory/${id}/consume`, consumeParams);
         return data;
     } catch (e) {
+        console.error(e);
+        throw e;
+    }
+};
+
+export const deleteInventoryItem = async (id: string): Promise<boolean> => {
+    try {
+        await apiClient.delete(`/api/inventory/${id}`);
+        return true;
+    } catch (e) {
+        console.error(e); return false;
+    }
+};
+
+// --- PROVIDERS ---
+export const fetchProviders = async (): Promise<Provider[]> => {
+    try {
+        const { data } = await apiClient.get('/api/providers');
+        return data;
+    } catch (e) {
+        console.error(e); return [];
+    }
+};
+
+export const createProvider = async (provider: ProviderInput): Promise<Provider | null> => {
+    try {
+        const { data } = await apiClient.post('/api/providers', provider);
+        return data;
+    } catch (e) {
         console.error(e); return null;
+    }
+};
+
+export const updateProvider = async (id: string, updates: Partial<ProviderInput>): Promise<Provider | null> => {
+    try {
+        const { data } = await apiClient.put(`/api/providers/${id}`, updates);
+        return data;
+    } catch (e) {
+        console.error(e); return null;
+    }
+};
+
+export const deleteProvider = async (id: string): Promise<boolean> => {
+    try {
+        await apiClient.delete(`/api/providers/${id}`);
+        return true;
+    } catch (e) {
+        console.error(e); return false;
     }
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Filter, Download } from 'lucide-react';
-import type { Expense, Category } from '../types';
+import type { Expense, Category, CropCycle } from '../types';
 import * as api from '../services/api';
 import ExpenseForm from '../components/ExpenseForm';
 import ExpenseList from '../components/ExpenseList';
@@ -8,6 +8,7 @@ import ExpenseList from '../components/ExpenseList';
 export default function ExpensesPage() {
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [cropCycles, setCropCycles] = useState<CropCycle[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     
     // Filters
@@ -22,12 +23,14 @@ export default function ExpensesPage() {
 
     const loadData = async () => {
         setIsLoading(true);
-        const [expData, catData] = await Promise.all([
+        const [expData, catData, cycleData] = await Promise.all([
             api.fetchExpenses(),
-            api.fetchCategories()
+            api.fetchCategories(),
+            api.fetchCropCycles()
         ]);
         setExpenses(expData);
         setCategories(catData);
+        setCropCycles(cycleData);
         setIsLoading(false);
     };
 
@@ -162,7 +165,7 @@ export default function ExpensesPage() {
                 {isLoading && expenses.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Cargando gastos...</div>
                 ) : (
-                    <ExpenseList expenses={filteredExpenses} onDeleteExpense={handleDeleteExpense} categories={categories} />
+                    <ExpenseList expenses={filteredExpenses} onDeleteExpense={handleDeleteExpense} categories={categories} cropCycles={cropCycles} />
                 )}
             </div>
         </div>

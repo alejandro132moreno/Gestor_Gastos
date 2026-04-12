@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Receipt, ScrollText, Building2, Wallet, Network, RefreshCcw, Package, LogOut } from 'lucide-react';
+import { LayoutDashboard, Receipt, ScrollText, Building2, Wallet, Network, RefreshCcw, Package, LogOut, Truck } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import '../index.css';
 
@@ -55,6 +55,7 @@ export default function MainLayout() {
                     <NavLink to="/plots" current={location.pathname} icon={<Network size={18} />} text="Lotes" />
                     <NavLink to="/crop-cycles" current={location.pathname} icon={<RefreshCcw size={18} />} text="Ciclos" />
                     <NavLink to="/inventory" current={location.pathname} icon={<Package size={18} />} text="Inventario" />
+                    <NavLink to="/providers" current={location.pathname} icon={<Truck size={18} />} text="Proveedores" />
                 </nav>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>

@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { PackageSearch, Plus, Leaf, PackageMinus } from 'lucide-react';
-import { fetchInventoryItems, createInventoryItem, consumeInventoryItem, fetchCropCycles } from '../services/api';
-import type { InventoryItem, InventoryItemInput, CropCycle, InventoryConsume } from '../types';
+import { PackageSearch, Plus, Leaf, PackageMinus, Search, Calendar, Trash2 } from 'lucide-react';
+import { fetchInventoryItems, createInventoryItem, consumeInventoryItem, fetchCropCycles, deleteInventoryItem, fetchProviders, fetchPlots } from '../services/api';
+import type { InventoryItem, InventoryItemInput, CropCycle, InventoryConsume, Provider, Plot } from '../types';
 import ItemModal from '../components/modals/ItemModal';
 import ConsumeModal from '../components/modals/ConsumeModal';
 
 export default function InventoryPage() {
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [cropCycles, setCropCycles] = useState<CropCycle[]>([]);
+    const [providers, setProviders] = useState<Provider[]>([]);
+    const [plots, setPlots] = useState<Plot[]>([]);
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const [consumeModalData, setConsumeModalData] = useState<{ isOpen: boolean; item?: InventoryItem }>({ isOpen: false });
 
     useEffect(() => {
@@ -16,12 +19,16 @@ export default function InventoryPage() {
     }, []);
 
     const loadData = async () => {
-        const [itemsData, cyclesData] = await Promise.all([
+        const [itemsData, cyclesData, providersData, plotsData] = await Promise.all([
             fetchInventoryItems(),
-            fetchCropCycles()
+            fetchCropCycles(),
+            fetchProviders(),
+            fetchPlots()
         ]);
         setItems(itemsData);
         setCropCycles(cyclesData);
+        setProviders(providersData);
+        setPlots(plotsData);
     };
 
     const handleCreateItem = async (itemInput: InventoryItemInput) => {
@@ -45,6 +52,18 @@ export default function InventoryPage() {
         }
     };
 
+    const handleDeleteItem = async (id: string) => {
+        if (window.confirm("¿Estás seguro de eliminar este insumo?")) {
+            await deleteInventoryItem(id);
+            await loadData();
+        }
+    };
+
+    const filteredItems = items.filter(item => 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        item.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
         <div className="animate-slide-up">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -60,17 +79,33 @@ export default function InventoryPage() {
                 </button>
             </div>
 
+            <div className="glass-panel" style={{ padding: '1rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Search size={20} color="var(--text-muted)" />
+                <input 
+                    type="text" 
+                    placeholder="Buscar insumo por nombre o categoría..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', flex: 1, outline: 'none', fontSize: '1rem' }}
+                />
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                {items.length === 0 ? (
+                {filteredItems.length === 0 ? (
                     <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', gridColumn: '1 / -1' }}>
                         <Leaf size={48} color="var(--text-muted)" style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
                         <h3>Aún no tienes insumos en tu almacén</h3>
                         <p style={{ color: 'var(--text-muted)' }}>Agrega productos como Semillas o Fertilizantes para gestionar tu stock.</p>
                     </div>
                 ) : (
-                    items.map(item => (
-                        <div key={item.id} className="glass-panel" style={{ padding: '1.5rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                    filteredItems.map(item => (
+                        <div key={item.id} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                            <div style={{ position: 'absolute', top: '1rem', right: '1rem' }}>
+                                <button onClick={() => handleDeleteItem(item.id)} style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '8px', padding: '0.4rem', cursor: 'pointer', color: 'var(--danger)' }}>
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', paddingRight: '2.5rem' }}>
                                 <div>
                                     <span style={{ 
                                         backgroundColor: 'rgba(16, 185, 129, 0.2)', 
@@ -83,9 +118,20 @@ export default function InventoryPage() {
                                         {item.category}
                                     </span>
                                     <h3 style={{ marginTop: '0.5rem', fontSize: '1.25rem', marginBottom: '0.25rem' }}>{item.name}</h3>
-                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '0.25rem' }}>
                                         Costo Promedio: ${item.average_cost.toFixed(2)} / {item.unit}
                                     </p>
+                                    {item.date_added && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                                            <Calendar size={14} />
+                                            <span>Añadido: {new Date(item.date_added).toLocaleDateString()}</span>
+                                        </div>
+                                    )}
+                                    {item.provider_name && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                                            <span>🚚 Proveedor: {item.provider_name}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             
@@ -97,7 +143,10 @@ export default function InventoryPage() {
                                 borderLeft: item.current_stock < 10 ? '4px solid var(--danger)' : '4px solid var(--primary)'
                             }}>
                                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Stock Actual</p>
-                                <p style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{item.current_stock.toFixed(2)} <span style={{fontSize: '1rem', color: 'var(--text-muted)'}}>{item.unit}</span></p>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <p style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{item.current_stock.toFixed(2)} <span style={{fontSize: '1rem', color: 'var(--text-muted)'}}>{item.unit}</span></p>
+                                    <p style={{ fontSize: '1.25rem', fontWeight: 500, color: '#10b981' }}>${(item.current_stock * item.average_cost).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                </div>
                             </div>
 
                             <button 
@@ -130,6 +179,7 @@ export default function InventoryPage() {
 
             {isItemModalOpen && (
                 <ItemModal 
+                    providers={providers}
                     onClose={() => setIsItemModalOpen(false)} 
                     onSubmit={handleCreateItem} 
                 />
@@ -139,6 +189,7 @@ export default function InventoryPage() {
                 <ConsumeModal 
                     item={consumeModalData.item}
                     cropCycles={cropCycles}
+                    plots={plots}
                     onClose={() => setConsumeModalData({ isOpen: false })} 
                     onSubmit={(payload) => handleConsumeItem(consumeModalData.item!.id, payload)} 
                 />

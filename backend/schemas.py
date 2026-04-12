@@ -7,6 +7,7 @@ class ExpenseBase(BaseModel):
     category: str
     subcategory: Optional[str] = None
     crop_cycle: Optional[str] = None
+    provider_name: Optional[str] = None
     date: str
     receipt_url: Optional[str] = None
     entity_type: str = "EXPENSE"
@@ -97,6 +98,8 @@ class InventoryItemBase(BaseModel):
     current_stock: float = 0.0
     average_cost: float = 0.0
     entity_type: str = "INVENTORY_ITEM"
+    date_added: Optional[str] = None
+    provider_name: Optional[str] = None
 
 class InventoryItemCreate(InventoryItemBase):
     pass
@@ -161,3 +164,28 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+class ProviderProduct(BaseModel):
+    id: str
+    name: str
+    price: float = 0.0
+    description: Optional[str] = None
+
+class ProviderBase(BaseModel):
+    name: str
+    contact_name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    service_type: Optional[str] = None
+    notes: Optional[str] = None
+    products: List[ProviderProduct] = []
+    entity_type: str = "PROVIDER"
+
+class ProviderCreate(ProviderBase):
+    pass
+
+class Provider(ProviderBase):
+    id: str
+
+    class Config:
+        from_attributes = True

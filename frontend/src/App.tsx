@@ -7,6 +7,7 @@ import BudgetsPage from './pages/BudgetsPage';
 import PlotsPage from './pages/PlotsPage';
 import CropCyclesPage from './pages/CropCyclesPage';
 import InventoryPage from './pages/InventoryPage';
+import ProvidersPage from './pages/ProvidersPage';
 
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
@@ -28,6 +29,7 @@ function App() {
                         <Route path="plots" element={<PlotsPage />} />
                         <Route path="crop-cycles" element={<CropCyclesPage />} />
                         <Route path="inventory" element={<InventoryPage />} />
+                        <Route path="providers" element={<ProvidersPage />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Route>
                 </Route>

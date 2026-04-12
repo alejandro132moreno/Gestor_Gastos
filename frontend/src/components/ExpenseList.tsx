@@ -1,14 +1,15 @@
 import React from 'react';
-import type { Expense, Category } from '../types';
+import type { Expense, Category, CropCycle } from '../types';
 import { Trash2, Link as LinkIcon, Sprout, Tag } from 'lucide-react';
 
 interface ExpenseListProps {
     expenses: Expense[];
     categories?: Category[];
+    cropCycles?: CropCycle[];
     onDeleteExpense: (id: string) => void;
 }
 
-const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, categories = [], onDeleteExpense }) => {
+const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, categories = [], cropCycles = [], onDeleteExpense }) => {
     if (expenses.length === 0) {
         return (
             <div className="glass-panel animate-slide-up" style={{ padding: '3rem', textAlign: 'center', marginTop: '1rem' }}>
@@ -66,13 +67,23 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, categories = [], on
                                     </a>
                                 )}
                             </div>
-                            {(expense.subcategory || expense.crop_cycle) && (
+                            {(expense.subcategory || expense.crop_cycle || expense.provider_name) && (
                                 <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                                     {expense.subcategory && (
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Tag size={12} /> {expense.subcategory}</span>
                                     )}
                                     {expense.crop_cycle && (
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#10b981' }}><Sprout size={12} /> {expense.crop_cycle}</span>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#10b981' }}>
+                                            <Sprout size={12} /> 
+                                            {cropCycles?.find(c => c.id === expense.crop_cycle)?.name || 'Ciclo'} 
+                                            {cropCycles?.find(c => c.id === expense.crop_cycle)?.variety && ` (${cropCycles.find(c => c.id === expense.crop_cycle)?.variety})`}
+                                            {!cropCycles?.find(c => c.id === expense.crop_cycle) && expense.crop_cycle}
+                                        </span>
+                                    )}
+                                    {expense.provider_name && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary)' }}>
+                                            🚚 {expense.provider_name}
+                                        </span>
                                     )}
                                 </div>
                             )}
