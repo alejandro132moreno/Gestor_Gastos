@@ -335,6 +335,19 @@ def get_inventory_items() -> List[dict]:
             i['id'] = i['gasto_id']
     return converted
 
+def get_inventory_transactions() -> List[dict]:
+    response = table.scan(
+        FilterExpression=Key('entity_type').eq('INVENTORY_TRANSACTION')
+    )
+    items = response.get('Items', [])
+    converted = convert_decimals(items)
+    for i in converted:
+        if 'id' not in i and 'gasto_id' in i:
+            i['id'] = i['gasto_id']
+    # Ordenar por fecha descendente
+    converted.sort(key=lambda x: x.get('date', ''), reverse=True)
+    return converted
+
 def consume_inventory_item(item_id: str, consume_data: dict) -> dict:
     response = table.query(
         KeyConditionExpression=Key('gasto_id').eq(item_id) & Key('fecha_gasto_id').eq('INVENTORY_ITEM')

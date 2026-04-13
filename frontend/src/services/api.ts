@@ -223,6 +223,15 @@ export const fetchInventoryItems = async (): Promise<InventoryItem[]> => {
     }
 };
 
+export const fetchInventoryTransactions = async (): Promise<any[]> => {
+    try {
+        const { data } = await apiClient.get('/api/inventory/transactions');
+        return data;
+    } catch (e) {
+        console.error(e); return [];
+    }
+};
+
 export const createInventoryItem = async (item: InventoryItemInput): Promise<InventoryItem | null> => {
     try {
         const { data } = await apiClient.post('/api/inventory', item);

@@ -149,6 +149,10 @@ def create_inventory_item(item: InventoryItemCreate):
 def get_inventory_items():
     return database.get_inventory_items()
 
+@app.get("/api/inventory/transactions", response_model=List[schemas.InventoryTransaction])
+def get_inventory_transactions():
+    return database.get_inventory_transactions()
+
 @app.post("/api/inventory/{item_id}/consume")
 def consume_inventory_item(item_id: str, consume: InventoryConsume):
     try:

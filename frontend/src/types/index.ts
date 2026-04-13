@@ -79,6 +79,18 @@ export interface InventoryConsume {
     notes?: string;
 }
 
+export interface InventoryTransaction {
+    id: string;
+    item_id: string;
+    transaction_type: string;
+    quantity: number;
+    unit_cost: number;
+    total_cost: number;
+    date: string;
+    related_entity_id?: string;
+    notes?: string;
+}
+
 export interface ProviderProduct {
     id: string;
     name: string;
