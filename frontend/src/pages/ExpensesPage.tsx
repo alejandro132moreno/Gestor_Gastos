@@ -5,15 +5,34 @@ import * as api from '../services/api';
 import ExpenseForm from '../components/ExpenseForm';
 import ExpenseList from '../components/ExpenseList';
 
+function getWeekString(dateStr: string) {
+    const date = new Date(dateStr);
+    const target = new Date(date.valueOf());
+    const dayNr = (date.getUTCDay() + 6) % 7;
+    target.setUTCDate(target.getUTCDate() - dayNr + 3);
+    const firstThursday = target.valueOf();
+    target.setUTCMonth(0, 1);
+    if (target.getUTCDay() !== 4) {
+        target.setUTCMonth(0, 1 + ((4 - target.getUTCDay()) + 7) % 7);
+    }
+    const weekNumber = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+    const year = target.getUTCFullYear();
+    return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
+}
+
 export default function ExpensesPage() {
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [cropCycles, setCropCycles] = useState<CropCycle[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    
+
     // Filters
     const [filterCategory, setFilterCategory] = useState('');
+    const [dateFilterType, setDateFilterType] = useState<'month' | 'week' | 'date'>('month');
     const [filterMonth, setFilterMonth] = useState('');
+    const [filterWeek, setFilterWeek] = useState('');
+    const [filterDateStart, setFilterDateStart] = useState('');
+    const [filterDateEnd, setFilterDateEnd] = useState('');
 
     const [isFormOpen, setIsFormOpen] = useState(false);
 
@@ -93,7 +112,20 @@ export default function ExpensesPage() {
     // Apply filters locally for now
     const filteredExpenses = expenses.filter(exp => {
         if (filterCategory && exp.category !== filterCategory) return false;
-        if (filterMonth && !exp.date.startsWith(filterMonth)) return false;
+
+        switch (dateFilterType) {
+            case 'month':
+                if (filterMonth && !exp.date.startsWith(filterMonth)) return false;
+                break;
+            case 'week':
+                if (filterWeek && getWeekString(exp.date) !== filterWeek) return false;
+                break;
+            case 'date':
+                if (filterDateStart && exp.date < filterDateStart) return false;
+                if (filterDateEnd && exp.date > filterDateEnd) return false;
+                break;
+        }
+
         return true;
     });
 
@@ -105,16 +137,16 @@ export default function ExpensesPage() {
                     <p style={{ color: 'var(--text-muted)' }}>Control agrícola y operativo</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button 
-                        className="btn" 
+                    <button
+                        className="btn"
                         onClick={handleExportCSV}
                         style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
                     >
                         <Download size={20} />
                         <span style={{ display: 'none', '@media (minWidth: 768px)': { display: 'inline' } } as any}>Exportar</span>
                     </button>
-                    <button 
-                        className="btn" 
+                    <button
+                        className="btn"
                         onClick={() => setIsFormOpen(!isFormOpen)}
                         style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                     >
@@ -127,9 +159,9 @@ export default function ExpensesPage() {
             {isFormOpen && (
                 <div className="glass-panel animate-slide-up" style={{ padding: '2rem', marginBottom: '1rem' }}>
                     <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>Registrar Nuevo Gasto</h3>
-                    <ExpenseForm 
-                        onAddExpense={handleAddExpense} 
-                        isLoading={isLoading} 
+                    <ExpenseForm
+                        onAddExpense={handleAddExpense}
+                        isLoading={isLoading}
                         categories={categories}
                         onCancel={() => setIsFormOpen(false)}
                     />
@@ -142,8 +174,8 @@ export default function ExpensesPage() {
                         <Filter size={20} />
                         <span>Filtros:</span>
                     </div>
-                    <select 
-                        className="glass-input" 
+                    <select
+                        className="glass-input"
                         style={{ width: 'auto', minWidth: '200px', padding: '0.5rem 1rem' }}
                         value={filterCategory}
                         onChange={(e) => setFilterCategory(e.target.value)}
@@ -153,13 +185,61 @@ export default function ExpensesPage() {
                             <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
                         ))}
                     </select>
-                    <input 
-                        type="month" 
-                        className="glass-input" 
+
+                    <span style={{ color: 'var(--text-muted)' }}>|</span>
+
+                    <select
+                        className="glass-input"
                         style={{ width: 'auto', padding: '0.5rem 1rem' }}
-                        value={filterMonth}
-                        onChange={(e) => setFilterMonth(e.target.value)}
-                    />
+                        value={dateFilterType}
+                        onChange={(e) => setDateFilterType(e.target.value as any)}
+                    >
+                        <option value="month">Por Mes</option>
+                        <option value="week">Por Semana</option>
+                        <option value="date">Por Fechas</option>
+                    </select>
+
+                    {dateFilterType === 'month' && (
+                        <input
+                            type="month"
+                            className="glass-input"
+                            style={{ width: 'auto', padding: '0.5rem 1rem' }}
+                            value={filterMonth}
+                            onChange={(e) => setFilterMonth(e.target.value)}
+                        />
+                    )}
+
+                    {dateFilterType === 'week' && (
+                        <input
+                            type="week"
+                            className="glass-input"
+                            style={{ width: 'auto', padding: '0.5rem 1rem' }}
+                            value={filterWeek}
+                            onChange={(e) => setFilterWeek(e.target.value)}
+                        />
+                    )}
+
+                    {dateFilterType === 'date' && (
+                        <>
+                            <input
+                                type="date"
+                                className="glass-input"
+                                style={{ width: 'auto', padding: '0.5rem 1rem' }}
+                                value={filterDateStart}
+                                onChange={(e) => setFilterDateStart(e.target.value)}
+                                title="Fecha inicio"
+                            />
+                            <span style={{ color: 'var(--text-muted)' }}>-</span>
+                            <input
+                                type="date"
+                                className="glass-input"
+                                style={{ width: 'auto', padding: '0.5rem 1rem' }}
+                                value={filterDateEnd}
+                                onChange={(e) => setFilterDateEnd(e.target.value)}
+                                title="Fecha fin"
+                            />
+                        </>
+                    )}
                 </div>
 
                 {isLoading && expenses.length === 0 ? (
