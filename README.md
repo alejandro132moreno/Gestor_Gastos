@@ -2,6 +2,8 @@
 
 Sistema integral para la gestión y control de gastos, presupuestos, ciclos de cultivo e inventario, optimizado para operaciones agrícolas (producción de jitomate y afines). Desarrollado con un frontend moderno en React (Vite + TypeScript + TailwindCSS) y un backend robusto en Python (FastAPI + DynamoDB).
 
+* 📑 **Documentación de Endpoints del API:** Puedes consultar el catálogo completo de endpoints y esquemas de JSON en [api_documentation.md](file:///c:/Control_Gastos/Gestor_Gastos/docs/api_documentation.md).
+
 ---
 
 ## 📐 1. Diagrama de Arquitectura del Sistema
