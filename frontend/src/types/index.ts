@@ -5,6 +5,7 @@ export interface Expense {
     category: string;
     subcategory?: string;
     crop_cycle?: string;
+    plot_id?: string;
     provider_name?: string;
     date: string;
     receipt_url?: string;

@@ -5,26 +5,15 @@ import * as api from '../services/api';
 import ExpenseForm from '../components/ExpenseForm';
 import ExpenseList from '../components/ExpenseList';
 
-function getWeekString(dateStr: string) {
-    const date = new Date(dateStr);
-    const target = new Date(date.valueOf());
-    const dayNr = (date.getUTCDay() + 6) % 7;
-    target.setUTCDate(target.getUTCDate() - dayNr + 3);
-    const firstThursday = target.valueOf();
-    target.setUTCMonth(0, 1);
-    if (target.getUTCDay() !== 4) {
-        target.setUTCMonth(0, 1 + ((4 - target.getUTCDay()) + 7) % 7);
-    }
-    const weekNumber = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
-    const year = target.getUTCFullYear();
-    return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
-}
-
 export default function ExpensesPage() {
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [cropCycles, setCropCycles] = useState<CropCycle[]>([]);
+    
+    // UI State
     const [isLoading, setIsLoading] = useState(true);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
     // Filters
     const [filterCategory, setFilterCategory] = useState('');
@@ -34,33 +23,79 @@ export default function ExpensesPage() {
     const [filterDateStart, setFilterDateStart] = useState('');
     const [filterDateEnd, setFilterDateEnd] = useState('');
 
-    const [isFormOpen, setIsFormOpen] = useState(false);
+    // Pagination
+    const limit = 15;
+    const [offset, setOffset] = useState(0);
 
+    // Fetch initial static lists
     useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = async () => {
-        setIsLoading(true);
-        const [expData, catData, cycleData] = await Promise.all([
-            api.fetchExpenses(),
+        Promise.all([
             api.fetchCategories(),
             api.fetchCropCycles()
-        ]);
-        setExpenses(expData);
-        setCategories(catData);
-        setCropCycles(cycleData);
+        ]).then(([catData, cycleData]) => {
+            setCategories(catData);
+            setCropCycles(cycleData);
+        });
+    }, []);
+
+    // Reload expenses when filters or pagination changes
+    useEffect(() => {
+        loadExpenses();
+    }, [filterCategory, dateFilterType, filterMonth, filterWeek, filterDateStart, filterDateEnd, limit, offset]);
+
+    const loadExpenses = async () => {
+        setIsLoading(true);
+        const params: any = {
+            limit,
+            offset
+        };
+
+        if (filterCategory) params.category = filterCategory;
+
+        if (dateFilterType === 'month' && filterMonth) {
+            params.date_start = `${filterMonth}-01`;
+            params.date_end = `${filterMonth}-31`;
+        } else if (dateFilterType === 'week' && filterWeek) {
+            const parts = filterWeek.split('-W');
+            if (parts.length === 2) {
+                const year = parseInt(parts[0]);
+                const week = parseInt(parts[1]);
+                const d = new Date(year, 0, 1 + (week - 1) * 7);
+                const day = d.getDay();
+                const start = new Date(d.setDate(d.getDate() - day + 1));
+                const end = new Date(d.setDate(d.getDate() + 6));
+                params.date_start = start.toISOString().split('T')[0];
+                params.date_end = end.toISOString().split('T')[0];
+            }
+        } else if (dateFilterType === 'date') {
+            if (filterDateStart) params.date_start = filterDateStart;
+            if (filterDateEnd) params.date_end = filterDateEnd;
+        }
+
+        const data = await api.fetchExpenses(params);
+        setExpenses(data);
         setIsLoading(false);
     };
 
-    const handleAddExpense = async (data: any) => {
+    const handleSubmitExpense = async (data: any) => {
         setIsLoading(true);
-        const result = await api.createExpense(data);
-        if (result) {
-            setExpenses([result, ...expenses]);
-            setIsFormOpen(false);
+        if (editingExpense) {
+            const result = await api.updateExpense(editingExpense.id, data);
+            if (result) {
+                setExpenses(expenses.map(e => e.id === editingExpense.id ? result : e));
+                setIsFormOpen(false);
+                setEditingExpense(null);
+            } else {
+                alert('Error al actualizar gasto');
+            }
         } else {
-            alert('Error guardando gasto');
+            const result = await api.createExpense(data);
+            if (result) {
+                setExpenses([result, ...expenses]);
+                setIsFormOpen(false);
+            } else {
+                alert('Error al guardar gasto');
+            }
         }
         setIsLoading(false);
     };
@@ -71,8 +106,18 @@ export default function ExpensesPage() {
         if (success) {
             setExpenses(expenses.filter(e => e.id !== id));
         } else {
-            alert('Error eliminando gasto');
+            alert('Error eliminando gasto. Solo Administradores, Gerentes y Supervisores tienen permiso.');
         }
+    };
+
+    const handleEditExpense = (expense: Expense) => {
+        setEditingExpense(expense);
+        setIsFormOpen(true);
+    };
+
+    const handleCancelForm = () => {
+        setIsFormOpen(false);
+        setEditingExpense(null);
     };
 
     const handleExportCSV = (e: React.MouseEvent) => {
@@ -88,7 +133,7 @@ export default function ExpensesPage() {
                 exp.category || '',
                 `"${(exp.description || '').replace(/"/g, '""')}"`,
                 exp.amount || 0,
-                '',
+                exp.plot_id || '',
                 exp.crop_cycle || ''
             ]);
             const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -109,26 +154,6 @@ export default function ExpensesPage() {
         }
     };
 
-    // Apply filters locally for now
-    const filteredExpenses = expenses.filter(exp => {
-        if (filterCategory && exp.category !== filterCategory) return false;
-
-        switch (dateFilterType) {
-            case 'month':
-                if (filterMonth && !exp.date.startsWith(filterMonth)) return false;
-                break;
-            case 'week':
-                if (filterWeek && getWeekString(exp.date) !== filterWeek) return false;
-                break;
-            case 'date':
-                if (filterDateStart && exp.date < filterDateStart) return false;
-                if (filterDateEnd && exp.date > filterDateEnd) return false;
-                break;
-        }
-
-        return true;
-    });
-
     return (
         <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
@@ -147,7 +172,7 @@ export default function ExpensesPage() {
                     </button>
                     <button
                         className="btn"
-                        onClick={() => setIsFormOpen(!isFormOpen)}
+                        onClick={() => { setEditingExpense(null); setIsFormOpen(!isFormOpen); }}
                         style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                     >
                         <Plus size={20} />
@@ -158,12 +183,15 @@ export default function ExpensesPage() {
 
             {isFormOpen && (
                 <div className="glass-panel animate-slide-up" style={{ padding: '2rem', marginBottom: '1rem' }}>
-                    <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>Registrar Nuevo Gasto</h3>
+                    <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>
+                        {editingExpense ? 'Editar Gasto Seleccionado' : 'Registrar Nuevo Gasto'}
+                    </h3>
                     <ExpenseForm
-                        onAddExpense={handleAddExpense}
+                        onSubmitExpense={handleSubmitExpense}
                         isLoading={isLoading}
                         categories={categories}
-                        onCancel={() => setIsFormOpen(false)}
+                        onCancel={handleCancelForm}
+                        initialData={editingExpense}
                     />
                 </div>
             )}
@@ -245,8 +273,37 @@ export default function ExpensesPage() {
                 {isLoading && expenses.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Cargando gastos...</div>
                 ) : (
-                    <ExpenseList expenses={filteredExpenses} onDeleteExpense={handleDeleteExpense} categories={categories} cropCycles={cropCycles} />
+                    <ExpenseList 
+                        expenses={expenses} 
+                        onDeleteExpense={handleDeleteExpense} 
+                        onEditExpense={handleEditExpense}
+                        categories={categories} 
+                        cropCycles={cropCycles} 
+                    />
                 )}
+                
+                {/* Pagination Controls */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                        Mostrando hasta {limit} gastos
+                    </span>
+                    <button 
+                        className="glass-input" 
+                        style={{ width: 'auto', padding: '0.4rem 1rem', cursor: offset === 0 ? 'default' : 'pointer', opacity: offset === 0 ? 0.5 : 1 }}
+                        disabled={offset === 0} 
+                        onClick={() => setOffset(Math.max(0, offset - limit))}
+                    >
+                        Anterior
+                    </button>
+                    <button 
+                        className="glass-input" 
+                        style={{ width: 'auto', padding: '0.4rem 1rem', cursor: expenses.length < limit ? 'default' : 'pointer', opacity: expenses.length < limit ? 0.5 : 1 }}
+                        disabled={expenses.length < limit}
+                        onClick={() => setOffset(offset + limit)}
+                    >
+                        Siguiente
+                    </button>
+                </div>
             </div>
         </div>
     );

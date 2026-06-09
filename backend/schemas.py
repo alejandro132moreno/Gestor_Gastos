@@ -7,10 +7,12 @@ class ExpenseBase(BaseModel):
     category: str
     subcategory: Optional[str] = None
     crop_cycle: Optional[str] = None
+    plot_id: Optional[str] = None
     provider_name: Optional[str] = None
     date: str
     receipt_url: Optional[str] = None
     entity_type: str = "EXPENSE"
+
 
 class ExpenseCreate(ExpenseBase):
     pass
@@ -40,9 +42,11 @@ class Category(CategoryBase):
 
 class BudgetBase(BaseModel):
     category_id: str
-    month: str # e.g. "2024-03"
+    month: Optional[str] = None # e.g. "2024-03"
+    crop_cycle_id: Optional[str] = None
     amount: float
     entity_type: str = "BUDGET"
+
 
 class BudgetCreate(BudgetBase):
     pass
@@ -147,7 +151,10 @@ class UserBase(BaseModel):
     role: str = "Trabajador" # Admin, Gerente, Supervisor, Trabajador
     currency: str = "USD"
     theme: str = "light"
+    default_plot_id: Optional[str] = None
+    default_crop_cycle_id: Optional[str] = None
     entity_type: str = "USER"
+
 
 class UserCreate(UserBase):
     password: str
@@ -161,6 +168,14 @@ class UserOut(UserBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    refresh_token: Optional[str] = None
+
+class TokenRefreshRequest(BaseModel):
+    refresh_token: str
+
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str
 
 class TokenData(BaseModel):
     email: Optional[str] = None

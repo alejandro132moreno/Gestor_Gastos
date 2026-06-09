@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DollarSign, AlertCircle, Calendar } from 'lucide-react';
 import * as api from '../services/api';
 import type { DashboardSummary } from '../types';

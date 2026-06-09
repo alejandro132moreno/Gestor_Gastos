@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Receipt, ScrollText, Building2, Wallet, Network, RefreshCcw, Package, LogOut, Truck } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import * as api from '../services/api';
 import '../index.css';
 
 export default function MainLayout() {
@@ -9,7 +10,8 @@ export default function MainLayout() {
     const user = useAuthStore(state => state.user);
     const logout = useAuthStore(state => state.logout);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await api.logoutUser();
         logout();
         navigate('/login');
     };
@@ -49,13 +51,23 @@ export default function MainLayout() {
                     flex: '1 1 auto', justifyContent: 'flex-start'
                 }}>
                     <NavLink to="/" current={location.pathname} icon={<LayoutDashboard size={18} />} text="Dashboard" />
-                    <NavLink to="/categories" current={location.pathname} icon={<ScrollText size={18} />} text="Categorías" />
+                    {(user?.role === 'Admin' || user?.role === 'Gerente') && (
+                        <NavLink to="/categories" current={location.pathname} icon={<ScrollText size={18} />} text="Categorías" />
+                    )}
                     <NavLink to="/expenses" current={location.pathname} icon={<Receipt size={18} />} text="Gastos" />
-                    <NavLink to="/budgets" current={location.pathname} icon={<Wallet size={18} />} text="Presupuestos" />
-                    <NavLink to="/plots" current={location.pathname} icon={<Network size={18} />} text="Lotes" />
-                    <NavLink to="/crop-cycles" current={location.pathname} icon={<RefreshCcw size={18} />} text="Ciclos" />
+                    {(user?.role === 'Admin' || user?.role === 'Gerente') && (
+                        <NavLink to="/budgets" current={location.pathname} icon={<Wallet size={18} />} text="Presupuestos" />
+                    )}
+                    {(user?.role === 'Admin' || user?.role === 'Gerente') && (
+                        <NavLink to="/plots" current={location.pathname} icon={<Network size={18} />} text="Lotes" />
+                    )}
+                    {(user?.role === 'Admin' || user?.role === 'Gerente' || user?.role === 'Supervisor') && (
+                        <NavLink to="/crop-cycles" current={location.pathname} icon={<RefreshCcw size={18} />} text="Ciclos" />
+                    )}
                     <NavLink to="/inventory" current={location.pathname} icon={<Package size={18} />} text="Inventario" />
-                    <NavLink to="/providers" current={location.pathname} icon={<Truck size={18} />} text="Proveedores" />
+                    {(user?.role === 'Admin' || user?.role === 'Gerente' || user?.role === 'Supervisor') && (
+                        <NavLink to="/providers" current={location.pathname} icon={<Truck size={18} />} text="Proveedores" />
+                    )}
                 </nav>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>

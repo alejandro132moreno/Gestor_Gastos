@@ -16,6 +16,34 @@ apiClient.interceptors.request.use((config) => {
     return config;
 });
 
+// Interceptor for handling token refresh on 401 errors
+apiClient.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config;
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+            const refreshToken = useAuthStore.getState().refreshToken;
+            if (refreshToken) {
+                try {
+                    const { data } = await axios.post(`${API_URL}/api/auth/refresh`, {
+                        refresh_token: refreshToken
+                    });
+                    const newToken = data.access_token;
+                    useAuthStore.getState().setToken(newToken);
+                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                    return apiClient(originalRequest);
+                } catch (refreshError) {
+                    useAuthStore.getState().logout();
+                    window.location.href = '/login';
+                    return Promise.reject(refreshError);
+                }
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
 // --- AUTH ---
 export const loginUser = async (credentials: any) => {
     const formData = new URLSearchParams();
@@ -41,10 +69,38 @@ export const fetchCurrentUser = async () => {
     }
 };
 
-// --- EXPENSES ---
-export const fetchExpenses = async (): Promise<Expense[]> => {
+export const logoutUser = async () => {
     try {
-        const { data } = await apiClient.get('/api/expenses');
+        await apiClient.post('/api/auth/logout');
+    } catch (e) {
+        console.error("Logout failed on server:", e);
+    }
+};
+
+export const changePassword = async (payload: any) => {
+    const { data } = await apiClient.put('/api/users/change-password', payload);
+    return data;
+};
+
+export const updateUserProfile = async (updates: any) => {
+    const { data } = await apiClient.put('/api/users/profile', updates);
+    return data;
+};
+
+// --- EXPENSES ---
+export const fetchExpenses = async (filters?: {
+    category?: string;
+    subcategory?: string;
+    crop_cycle?: string;
+    plot_id?: string;
+    date_start?: string;
+    date_end?: string;
+    sort_by?: string;
+    limit?: number;
+    offset?: number;
+}): Promise<Expense[]> => {
+    try {
+        const { data } = await apiClient.get('/api/expenses', { params: filters });
         return data;
     } catch (e) {
         console.error(e); return [];
@@ -54,6 +110,15 @@ export const fetchExpenses = async (): Promise<Expense[]> => {
 export const createExpense = async (expense: ExpenseInput): Promise<Expense | null> => {
     try {
         const { data } = await apiClient.post('/api/expenses', expense);
+        return data;
+    } catch (e) {
+        console.error(e); return null;
+    }
+};
+
+export const updateExpense = async (id: string, expense: ExpenseInput): Promise<Expense | null> => {
+    try {
+        const { data } = await apiClient.put(`/api/expenses/${id}`, expense);
         return data;
     } catch (e) {
         console.error(e); return null;
@@ -88,6 +153,15 @@ export const createCategory = async (category: CategoryInput): Promise<Category 
     }
 };
 
+export const updateCategory = async (id: string, category: CategoryInput): Promise<Category | null> => {
+    try {
+        const { data } = await apiClient.put(`/api/categories/${id}`, category);
+        return data;
+    } catch (e) {
+        console.error(e); return null;
+    }
+};
+
 export const deleteCategory = async (id: string): Promise<boolean> => {
     try {
         await apiClient.delete(`/api/categories/${id}`);
@@ -98,17 +172,19 @@ export const deleteCategory = async (id: string): Promise<boolean> => {
 };
 
 // --- BUDGETS ---
-export const fetchBudgets = async (month?: string): Promise<Budget[]> => {
+export const fetchBudgets = async (month?: string, cropCycleId?: string): Promise<Budget[]> => {
     try {
-        const url = month ? `/api/budgets?month=${month}` : `/api/budgets`;
-        const { data } = await apiClient.get(url);
+        const params: any = {};
+        if (month) params.month = month;
+        if (cropCycleId) params.crop_cycle_id = cropCycleId;
+        const { data } = await apiClient.get('/api/budgets', { params });
         return data;
     } catch (e) {
         console.error(e); return [];
     }
 };
 
-export const createBudget = async (budget: BudgetInput): Promise<Budget | null> => {
+export const createBudget = async (budget: BudgetInput & { crop_cycle_id?: string }): Promise<Budget | null> => {
     try {
         const { data } = await apiClient.post('/api/budgets', budget);
         return data;
@@ -117,12 +193,21 @@ export const createBudget = async (budget: BudgetInput): Promise<Budget | null> 
     }
 };
 
-export const deleteBudget = async (id: string, month: string): Promise<boolean> => {
+export const deleteBudget = async (id: string, monthOrCycle: string): Promise<boolean> => {
     try {
-        await apiClient.delete(`/api/budgets/${id}?month=${month}`);
+        await apiClient.delete(`/api/budgets/${id}?month=${monthOrCycle}`);
         return true;
     } catch (e) {
         console.error(e); return false;
+    }
+};
+
+export const fetchBudgetAlerts = async (): Promise<any[]> => {
+    try {
+        const { data } = await apiClient.get('/api/budgets/alertas');
+        return data;
+    } catch (e) {
+        console.error(e); return [];
     }
 };
 

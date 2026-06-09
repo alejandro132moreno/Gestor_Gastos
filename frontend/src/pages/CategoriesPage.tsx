@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 import type { Category } from '../types';
 import * as api from '../services/api';
@@ -7,6 +7,7 @@ import CategoryModal from '../components/CategoryModal';
 export default function CategoriesPage() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const loadCategories = async () => {
@@ -26,8 +27,18 @@ export default function CategoriesPage() {
         if (success) {
             setCategories(categories.filter(c => c.id !== id));
         } else {
-            alert('Error eliminando categoría');
+            alert('Error al eliminar categoría. Verifica si tiene gastos asociados o si tienes los permisos adecuados.');
         }
+    };
+
+    const handleEdit = (category: Category) => {
+        setEditingCategory(category);
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingCategory(null);
     };
 
     return (
@@ -39,7 +50,7 @@ export default function CategoriesPage() {
                 </div>
                 <button 
                     className="btn" 
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => { setEditingCategory(null); setIsModalOpen(true); }}
                     style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                 >
                     <Plus size={20} />
@@ -79,7 +90,10 @@ export default function CategoriesPage() {
                                         {cat.icon || '📦'}
                                     </div>
                                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <button className="btn-danger" onClick={() => handleDelete(cat.id!)} style={{ padding: '0.5rem', display: 'flex', alignItems: 'center' }}>
+                                        <button onClick={() => handleEdit(cat)} style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-muted)', cursor: 'pointer', borderRadius: '8px' }}>
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button className="btn-danger" onClick={() => handleDelete(cat.id!)} style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', borderRadius: '8px' }}>
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
@@ -104,11 +118,12 @@ export default function CategoriesPage() {
 
             {isModalOpen && (
                 <CategoryModal 
-                    onClose={() => setIsModalOpen(false)} 
+                    onClose={handleCloseModal} 
                     onSaved={() => {
-                        setIsModalOpen(false);
+                        handleCloseModal();
                         loadCategories();
                     }}
+                    initialData={editingCategory}
                 />
             )}
         </div>

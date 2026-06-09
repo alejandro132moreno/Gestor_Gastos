@@ -21,11 +21,11 @@ export default function LoginPage() {
             const data = await loginUser({ email, password });
             if (data.access_token) {
                 // Set temporarily to auth interceptor works for the /me lookup
-                useAuthStore.getState().login(data.access_token, { id: '', email, full_name: 'Cargando...', role: 'Trabajador' });
+                useAuthStore.getState().login(data.access_token, data.refresh_token || '', { id: '', email, full_name: 'Cargando...', role: 'Trabajador' });
                 
                 const user = await fetchCurrentUser();
                 if (user) {
-                    login(data.access_token, user);
+                    login(data.access_token, data.refresh_token || '', user);
                     navigate('/');
                 } else {
                     setError('Error al obtener perfil.');

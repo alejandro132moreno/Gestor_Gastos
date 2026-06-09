@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import type { ExpenseInput, Category } from '../types';
+import type { Expense, ExpenseInput, Category } from '../types';
 import * as api from '../services/api';
 
 const expenseSchema = z.object({
@@ -11,6 +11,7 @@ const expenseSchema = z.object({
     category: z.string().min(1, 'La categoría es obligatoria'),
     subcategory: z.string().optional(),
     crop_cycle: z.string().optional(),
+    plot_id: z.string().optional(),
     provider_name: z.string().optional(),
     date: z.string().min(1, 'La fecha es obligatoria'),
 });
@@ -18,18 +19,23 @@ const expenseSchema = z.object({
 type ExpenseFormData = z.infer<typeof expenseSchema>;
 
 interface ExpenseFormProps {
-    onAddExpense: (expense: ExpenseInput) => void;
+    onSubmitExpense: (expense: ExpenseInput) => void;
     isLoading: boolean;
     categories?: Category[];
     onCancel?: () => void;
+    initialData?: Expense | null;
 }
 
-const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, isLoading, categories = [], onCancel }) => {
+const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSubmitExpense, isLoading, categories = [], onCancel, initialData }) => {
     const { register, handleSubmit, watch, formState: { errors }, reset } = useForm<ExpenseFormData>({
         resolver: zodResolver(expenseSchema),
         defaultValues: {
             date: new Date().toISOString().split('T')[0],
-            amount: 0
+            amount: 0,
+            subcategory: '',
+            crop_cycle: '',
+            plot_id: '',
+            provider_name: ''
         }
     });
 
@@ -38,16 +44,46 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, isLoading, cate
     
     const [cropCycles, setCropCycles] = useState<any[]>([]);
     const [providers, setProviders] = useState<any[]>([]);
+    const [plots, setPlots] = useState<any[]>([]);
 
     useEffect(() => {
         Promise.all([
             api.fetchCropCycles(),
-            api.fetchProviders()
-        ]).then(([cycles, provs]) => {
+            api.fetchProviders(),
+            api.fetchPlots()
+        ]).then(([cycles, provs, plotsData]) => {
             setCropCycles(cycles);
             setProviders(provs);
+            setPlots(plotsData);
         });
     }, []);
+
+    // Load initialData when editing
+    useEffect(() => {
+        if (initialData) {
+            reset({
+                description: initialData.description,
+                amount: initialData.amount,
+                category: initialData.category,
+                subcategory: initialData.subcategory || '',
+                crop_cycle: initialData.crop_cycle || '',
+                plot_id: initialData.plot_id || '',
+                provider_name: initialData.provider_name || '',
+                date: initialData.date,
+            });
+        } else {
+            reset({
+                description: '',
+                amount: 0,
+                category: '',
+                subcategory: '',
+                crop_cycle: '',
+                plot_id: '',
+                provider_name: '',
+                date: new Date().toISOString().split('T')[0],
+            });
+        }
+    }, [initialData, reset]);
 
     // Watch selected category to update subcategories
     const selectedCategoryName = watch('category');
@@ -55,7 +91,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, isLoading, cate
 
     const onSubmit = async (data: ExpenseFormData) => {
         setIsUploading(true);
-        let receiptUrl: string | undefined = undefined;
+        let receiptUrl: string | undefined = initialData?.receipt_url;
 
         if (receiptFile) {
             const uploadedUrl = await api.uploadReceipt(receiptFile);
@@ -66,13 +102,22 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, isLoading, cate
             }
         }
 
-        onAddExpense({
+        // Clean empty fields to avoid sending empty strings to DynamoDB if optional
+        const payload: any = {
             ...data,
-            ...(receiptUrl && { receipt_url: receiptUrl })
-        });
+            subcategory: data.subcategory || undefined,
+            crop_cycle: data.crop_cycle || undefined,
+            plot_id: data.plot_id || undefined,
+            provider_name: data.provider_name || undefined,
+            receipt_url: receiptUrl
+        };
+
+        onSubmitExpense(payload);
         
-        reset();
-        setReceiptFile(null);
+        if (!initialData) {
+            reset();
+            setReceiptFile(null);
+        }
         setIsUploading(false);
     };
 
@@ -138,6 +183,15 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, isLoading, cate
 
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 200px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Lote / Invernadero (Opcional)</label>
+                    <select className="glass-input" {...register('plot_id')}>
+                        <option value="">Ninguno / Gastos Generales</option>
+                        {plots.map(plot => (
+                            <option key={plot.id} value={plot.id}>{plot.name} ({plot.type.replace('_', ' ')})</option>
+                        ))}
+                    </select>
+                </div>
+                <div style={{ flex: '1 1 200px' }}>
                     <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Ciclo de Cultivo (Opcional)</label>
                     <select className="glass-input" {...register('crop_cycle')}>
                         <option value="">Ninguno / Gastos Generales</option>
@@ -166,6 +220,11 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, isLoading, cate
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
                     Comprobante (Factura/Ticket en PDF o Imagen)
                 </label>
+                {initialData?.receipt_url && (
+                    <p style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+                        Archivo actual: <a href={initialData.receipt_url} target="_blank" rel="noreferrer" style={{ color: 'var(--secondary)' }}>Ver Comprobante</a> (Subir uno nuevo para reemplazarlo)
+                    </p>
+                )}
                 <input
                     type="file"
                     accept="image/*,application/pdf"
@@ -179,7 +238,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ onAddExpense, isLoading, cate
                     <button type="button" className="glass-input" style={{ width: 'auto', background: 'transparent' }} onClick={onCancel}>Cancelar</button>
                 )}
                 <button type="submit" className="btn" disabled={isLoading || isUploading}>
-                    {isUploading ? 'Subiendo Archivo...' : isLoading ? 'Guardando...' : 'Añadir Gasto'}
+                    {isUploading ? 'Subiendo Archivo...' : isLoading ? 'Guardando...' : initialData ? 'Guardar Cambios' : 'Añadir Gasto'}
                 </button>
             </div>
         </form>

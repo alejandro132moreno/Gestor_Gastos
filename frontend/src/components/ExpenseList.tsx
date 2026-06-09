@@ -1,15 +1,23 @@
 import React from 'react';
 import type { Expense, Category, CropCycle } from '../types';
-import { Trash2, Link as LinkIcon, Sprout, Tag } from 'lucide-react';
+import { Trash2, Link as LinkIcon, Sprout, Tag, Edit2, Network } from 'lucide-react';
+import * as api from '../services/api';
 
 interface ExpenseListProps {
     expenses: Expense[];
     categories?: Category[];
     cropCycles?: CropCycle[];
     onDeleteExpense: (id: string) => void;
+    onEditExpense: (expense: Expense) => void;
 }
 
-const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, categories = [], cropCycles = [], onDeleteExpense }) => {
+const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, categories = [], cropCycles = [], onDeleteExpense, onEditExpense }) => {
+    const [plots, setPlots] = React.useState<any[]>([]);
+
+    React.useEffect(() => {
+        api.fetchPlots().then(data => setPlots(data));
+    }, []);
+
     if (expenses.length === 0) {
         return (
             <div className="glass-panel animate-slide-up" style={{ padding: '3rem', textAlign: 'center', marginTop: '1rem' }}>
@@ -22,7 +30,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, categories = [], cr
         <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 1.5fr) minmax(100px, 1fr) minmax(100px, 1fr) 80px',
+                gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 1.5fr) minmax(100px, 1fr) minmax(100px, 1fr) 100px',
                 gap: '1rem',
                 padding: '0.75rem 1.5rem',
                 borderBottom: '1px solid var(--card-border)',
@@ -39,14 +47,15 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, categories = [], cr
             </div>
 
             {expenses.map((expense) => {
-                const catObj = categories.find(c => c.name === expense.category);
+                const catObj = categories.find(c => c.name === expense.category || expense.category.endsWith(c.name));
                 const color = catObj?.color || 'var(--primary)';
                 const icon = catObj?.icon || '🏷️';
+                const plotObj = plots.find(p => p.id === expense.plot_id);
                 
                 return (
                     <div key={expense.id} className="glass-panel" style={{ 
                         display: 'grid',
-                        gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 1.5fr) minmax(100px, 1fr) minmax(100px, 1fr) 80px',
+                        gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 1.5fr) minmax(100px, 1fr) minmax(100px, 1fr) 100px',
                         gap: '1rem',
                         padding: '1rem 1.5rem', 
                         alignItems: 'center', 
@@ -67,17 +76,21 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, categories = [], cr
                                     </a>
                                 )}
                             </div>
-                            {(expense.subcategory || expense.crop_cycle || expense.provider_name) && (
-                                <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                            {(expense.subcategory || expense.crop_cycle || expense.plot_id || expense.provider_name) && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                                     {expense.subcategory && (
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Tag size={12} /> {expense.subcategory}</span>
+                                    )}
+                                    {expense.plot_id && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#6366f1' }}>
+                                            <Network size={12} /> 
+                                            {plotObj ? plotObj.name : 'Lote'}
+                                        </span>
                                     )}
                                     {expense.crop_cycle && (
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#10b981' }}>
                                             <Sprout size={12} /> 
                                             {cropCycles?.find(c => c.id === expense.crop_cycle)?.name || 'Ciclo'} 
-                                            {cropCycles?.find(c => c.id === expense.crop_cycle)?.variety && ` (${cropCycles.find(c => c.id === expense.crop_cycle)?.variety})`}
-                                            {!cropCycles?.find(c => c.id === expense.crop_cycle) && expense.crop_cycle}
                                         </span>
                                     )}
                                     {expense.provider_name && (
@@ -101,7 +114,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, categories = [], cr
                                 alignItems: 'center',
                                 gap: '0.35rem'
                             }}>
-                                <span>{icon}</span> {expense.category}
+                                <span>{icon}</span> {catObj?.name || expense.category}
                             </span>
                         </div>
 
@@ -113,12 +126,22 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, categories = [], cr
                             ${expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+                            <button onClick={() => onEditExpense(expense)} style={{ 
+                                padding: '0.5rem', 
+                                borderRadius: '8px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                border: 'none', background: 'transparent', color: 'var(--text-muted)',
+                                cursor: 'pointer'
+                            }} title="Editar">
+                                <Edit2 size={18} />
+                            </button>
                             <button onClick={() => onDeleteExpense(expense.id)} className="btn-danger" style={{ 
                                 padding: '0.5rem', 
                                 borderRadius: '8px',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                border: 'none', background: 'transparent'
+                                border: 'none', background: 'transparent',
+                                cursor: 'pointer'
                             }} title="Eliminar">
                                 <Trash2 size={18} />
                             </button>

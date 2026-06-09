@@ -16,6 +16,49 @@ import schemas
 
 app = FastAPI(title="Control de Gastos API", description="API para el sistema de control de gastos usando DynamoDB")
 
+@app.on_event("startup")
+def startup_event():
+    database.seed_default_categories()
+
+
+# --- EPIC 2: AUTHENTICATION HELPERS ---
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    if database.is_token_blacklisted(token):
+        raise credentials_exception
+    try:
+        payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+        email: str = payload.get("email")
+        tok_type: str = payload.get("type", "access")
+        if email is None or tok_type != "access":
+            raise credentials_exception
+    except auth.JWTError:
+        raise credentials_exception
+        
+    user = database.get_user_by_email(email)
+    if user is None:
+        raise credentials_exception
+    return user
+
+def check_roles(allowed_roles: List[str]):
+    def dependency(current_user: dict = Depends(get_current_user)):
+        user_role = current_user.get('role', 'Trabajador')
+        if user_role not in allowed_roles:
+            raise HTTPException(
+                status_code=403,
+                detail="No tienes permisos suficientes para realizar esta acción."
+            )
+        return current_user
+    return dependency
+
+
+
 # Configuración estricta de CORS para permitir solicitudes del Frontend en React
 app.add_middleware(
     CORSMiddleware,
@@ -49,32 +92,86 @@ def delete_expense(expense_id: str):
 
 # --- EPIC 3: GASTOS (Actualizados) ---
 @app.post("/api/expenses", response_model=Expense)
-def create_api_expense(expense: ExpenseCreate):
+def create_api_expense(expense: ExpenseCreate, current_user: dict = Depends(get_current_user)):
     return database.create_expense(expense.model_dump())
 
 @app.get("/api/expenses", response_model=List[Expense])
-def get_api_expenses():
-    # TODO: Añadir filtros a get_api_expenses en la BD
-    return database.get_expenses()
+def get_api_expenses(
+    category: Optional[str] = Query(None),
+    subcategory: Optional[str] = Query(None),
+    crop_cycle: Optional[str] = Query(None),
+    plot_id: Optional[str] = Query(None),
+    date_start: Optional[str] = Query(None),
+    date_end: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query(None),
+    limit: Optional[int] = Query(None),
+    offset: int = Query(0),
+    current_user: dict = Depends(get_current_user)
+):
+    return database.get_expenses(
+        category=category,
+        subcategory=subcategory,
+        crop_cycle=crop_cycle,
+        plot_id=plot_id,
+        date_start=date_start,
+        date_end=date_end,
+        sort_by=sort_by,
+        limit=limit,
+        offset=offset
+    )
+
+@app.get("/api/expenses/{expense_id}", response_model=Expense)
+def get_api_expense_by_id(expense_id: str, current_user: dict = Depends(get_current_user)):
+    res = database.get_expense_by_id(expense_id)
+    if not res:
+        raise HTTPException(status_code=404, detail="El gasto no fue encontrado.")
+    return res
+
+@app.put("/api/expenses/{expense_id}", response_model=Expense)
+def update_api_expense(expense_id: str, expense: ExpenseCreate, current_user: dict = Depends(get_current_user)):
+    res = database.update_expense(expense_id, expense.model_dump())
+    if not res:
+        raise HTTPException(status_code=404, detail="El gasto no fue encontrado.")
+    return res
 
 @app.delete("/api/expenses/{expense_id}")
-def delete_api_expense(expense_id: str):
+def delete_api_expense(expense_id: str, current_user: dict = Depends(check_roles(["Admin", "Gerente", "Supervisor"]))):
     success = database.delete_expense(expense_id)
     if not success:
         raise HTTPException(status_code=404, detail="El gasto no fue encontrado o hubo un error.")
     return {"message": "Success"}
 
-# --- EPIC 4: CATEGORIAS ---
 @app.post("/api/categories", response_model=Category)
-def create_category(category: CategoryCreate):
+def create_category(category: CategoryCreate, current_user: dict = Depends(check_roles(["Admin", "Gerente"]))):
     return database.create_category(category.model_dump())
 
+@app.put("/api/categories/{category_id}", response_model=Category)
+def update_category(category_id: str, category: CategoryCreate, current_user: dict = Depends(check_roles(["Admin", "Gerente"]))):
+    res = database.update_category(category_id, category.model_dump())
+    if not res:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada.")
+    return res
+
+
 @app.get("/api/categories", response_model=List[Category])
-def get_categories():
+def get_categories(current_user: dict = Depends(get_current_user)):
     return database.get_categories()
 
 @app.delete("/api/categories/{category_id}")
-def delete_category(category_id: str):
+def delete_category(category_id: str, current_user: dict = Depends(check_roles(["Admin", "Gerente"]))):
+    # Check if category is associated with expenses before deleting
+    category_obj = database.get_categories()
+    cat_name = None
+    for c in category_obj:
+        if c.get('id') == category_id:
+            cat_name = c.get('name')
+            break
+            
+    if cat_name:
+        associated_expenses = database.get_expenses(category=cat_name)
+        if len(associated_expenses) > 0:
+            raise HTTPException(status_code=400, detail="No se puede eliminar la categoría porque tiene gastos asociados.")
+            
     success = database.delete_category(category_id)
     if not success:
         raise HTTPException(status_code=404, detail="Categoría no encontrada.")
@@ -82,19 +179,24 @@ def delete_category(category_id: str):
 
 # --- EPIC 5: PRESUPUESTOS ---
 @app.post("/api/budgets", response_model=Budget)
-def create_budget(budget: BudgetCreate):
+def create_budget(budget: BudgetCreate, current_user: dict = Depends(check_roles(["Admin", "Gerente"]))):
     return database.create_budget(budget.model_dump())
 
 @app.get("/api/budgets", response_model=List[Budget])
-def get_budgets(month: Optional[str] = Query(None)):
+def get_budgets(month: Optional[str] = Query(None), current_user: dict = Depends(get_current_user)):
     return database.get_budgets(month)
 
 @app.delete("/api/budgets/{budget_id}")
-def delete_budget(budget_id: str, month: str):
+def delete_budget(budget_id: str, month: str, current_user: dict = Depends(check_roles(["Admin", "Gerente"]))):
     success = database.delete_budget(budget_id, month)
     if not success:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado.")
     return {"message": "Success"}
+
+@app.get("/api/budgets/alertas")
+def get_budgets_alerts(current_user: dict = Depends(get_current_user)):
+    return database.get_active_alerts()
+
 
 # --- EPIC 6: DASHBOARD ---
 @app.get("/api/dashboard/summary")
@@ -194,26 +296,6 @@ def delete_provider(provider_id: str):
     return {"message": "Success"}
 
 # --- EPIC 2: AUTHENTICATION ---
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
-        email: str = payload.get("email")
-        if email is None:
-            raise credentials_exception
-    except auth.JWTError:
-        raise credentials_exception
-        
-    user = database.get_user_by_email(email)
-    if user is None:
-        raise credentials_exception
-    return user
 
 @app.post("/api/auth/register", response_model=UserOut)
 def register(user: UserCreate):
@@ -237,7 +319,38 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
         raise HTTPException(status_code=400, detail="Correo o contraseña incorrectos")
         
     access_token = auth.create_access_token(data={"email": user['email'], "role": user.get('role', 'Trabajador')})
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh_token = auth.create_refresh_token(data={"email": user['email']})
+    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
+
+@app.post("/api/auth/refresh", response_model=Token)
+def refresh_token(payload: schemas.TokenRefreshRequest):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Invalid refresh token",
+    )
+    r_token = payload.refresh_token
+    if database.is_token_blacklisted(r_token):
+        raise credentials_exception
+    try:
+        decoded_payload = auth.jwt.decode(r_token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+        email: str = decoded_payload.get("email")
+        tok_type: str = decoded_payload.get("type")
+        if email is None or tok_type != "refresh":
+            raise credentials_exception
+    except auth.JWTError:
+        raise credentials_exception
+
+    user = database.get_user_by_email(email)
+    if user is None:
+        raise credentials_exception
+
+    new_access_token = auth.create_access_token(data={"email": user['email'], "role": user.get('role', 'Trabajador')})
+    return {"access_token": new_access_token, "token_type": "bearer", "refresh_token": r_token}
+
+@app.post("/api/auth/logout")
+def logout(token: str = Depends(oauth2_scheme), current_user: dict = Depends(get_current_user)):
+    database.blacklist_token(token)
+    return {"message": "Logged out successfully"}
 
 @app.get("/api/auth/me", response_model=UserOut)
 def read_users_me(current_user: dict = Depends(get_current_user)):
@@ -249,3 +362,14 @@ def update_profile(updates: dict, current_user: dict = Depends(get_current_user)
     updates.pop('email', None)
     updated_user = database.update_user_profile(current_user['id'], updates)
     return updated_user
+
+@app.put("/api/users/change-password")
+def change_password(change: schemas.PasswordChange, current_user: dict = Depends(get_current_user)):
+    if not auth.verify_password(change.old_password, current_user['password']):
+        raise HTTPException(status_code=400, detail="Contraseña anterior incorrecta")
+    hashed = auth.get_password_hash(change.new_password)
+    success = database.change_user_password(current_user['id'], hashed)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al cambiar contraseña")
+    return {"message": "Password changed successfully"}
+

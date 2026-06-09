@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function MonthlyTrendChart({ data }: { data: Record<string, number> }) {

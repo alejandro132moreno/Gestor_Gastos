@@ -23,13 +23,22 @@ function App() {
                 <Route element={<ProtectedRoute />}>
                     <Route path="/" element={<MainLayout />}>
                         <Route index element={<DashboardPage />} />
-                        <Route path="categories" element={<CategoriesPage />} />
                         <Route path="expenses" element={<ExpensesPage />} />
-                        <Route path="budgets" element={<BudgetsPage />} />
-                        <Route path="plots" element={<PlotsPage />} />
-                        <Route path="crop-cycles" element={<CropCyclesPage />} />
                         <Route path="inventory" element={<InventoryPage />} />
-                        <Route path="providers" element={<ProvidersPage />} />
+                        
+                        {/* Admin, Gerente, Supervisor */}
+                        <Route element={<ProtectedRoute allowedRoles={['Admin', 'Gerente', 'Supervisor']} />}>
+                            <Route path="crop-cycles" element={<CropCyclesPage />} />
+                            <Route path="providers" element={<ProvidersPage />} />
+                        </Route>
+                        
+                        {/* Admin, Gerente only */}
+                        <Route element={<ProtectedRoute allowedRoles={['Admin', 'Gerente']} />}>
+                            <Route path="categories" element={<CategoriesPage />} />
+                            <Route path="budgets" element={<BudgetsPage />} />
+                            <Route path="plots" element={<PlotsPage />} />
+                        </Route>
+                        
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Route>
                 </Route>

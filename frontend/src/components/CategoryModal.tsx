@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
 import * as api from '../services/api';
-import type { CategoryInput } from '../types';
+import type { Category, CategoryInput } from '../types';
 
 interface Props {
     onClose: () => void;
     onSaved: () => void;
+    initialData?: Category | null;
 }
 
-export default function CategoryModal({ onClose, onSaved }: Props) {
-    const [name, setName] = useState('');
-    const [icon, setIcon] = useState('🌾');
-    const [color, setColor] = useState('#10b981');
-    const [priority, setPriority] = useState('Media');
-    const [subcategories, setSubcategories] = useState<string[]>([]);
+export default function CategoryModal({ onClose, onSaved, initialData }: Props) {
+    const [name, setName] = useState(initialData?.name || '');
+    const [icon, setIcon] = useState(initialData?.icon || '🌾');
+    const [color, setColor] = useState(initialData?.color || '#10b981');
+    const [priority, setPriority] = useState(initialData?.priority || 'Media');
+    const [subcategories, setSubcategories] = useState<string[]>(initialData?.subcategories || []);
     
     // UI state
     const [newSub, setNewSub] = useState('');
@@ -44,7 +45,13 @@ export default function CategoryModal({ onClose, onSaved }: Props) {
             subcategories,
         };
 
-        const result = await api.createCategory(data);
+        let result;
+        if (initialData) {
+            result = await api.updateCategory(initialData.id, data);
+        } else {
+            result = await api.createCategory(data);
+        }
+        
         setIsLoading(false);
         if (result) {
             onSaved();
@@ -68,7 +75,7 @@ export default function CategoryModal({ onClose, onSaved }: Props) {
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h3 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Nueva Categoría</h3>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{initialData ? 'Editar Categoría' : 'Nueva Categoría'}</h3>
                     <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                         <X size={24} />
                     </button>

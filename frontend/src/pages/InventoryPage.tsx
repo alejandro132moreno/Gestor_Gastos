@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { PackageSearch, Plus, Leaf, PackageMinus, Search, Calendar, Trash2 } from 'lucide-react';
 import { fetchInventoryItems, createInventoryItem, consumeInventoryItem, fetchCropCycles, deleteInventoryItem, fetchProviders, fetchPlots, fetchInventoryTransactions } from '../services/api';
 import type { InventoryItem, InventoryItemInput, CropCycle, InventoryConsume, Provider, Plot, InventoryTransaction } from '../types';
